@@ -78,11 +78,11 @@ class ChessRecognizer:
         model.eval()
         return cfg, model
 
-    def _classify_occupancy(self, img: np.ndarray, turn: chess.Color, corners: np.ndarray) -> np.ndarray:
+    def _classify_occupancy(self, img: np.ndarray, orientation: str | chess.Color, corners: np.ndarray) -> np.ndarray:
         warped = create_occupancy_dataset.warp_chessboard_image(
             img, corners)
         square_imgs = map(functools.partial(
-            create_occupancy_dataset.crop_square, warped, turn=turn), self._squares)
+            create_occupancy_dataset.crop_square, warped, turn=orientation), self._squares)
         square_imgs = map(Image.fromarray, square_imgs)
         square_imgs = map(self._occupancy_transforms, square_imgs)
         square_imgs = list(square_imgs)
@@ -94,12 +94,12 @@ class ChessRecognizer:
         occupancy = occupancy.cpu().numpy()
         return occupancy
 
-    def _classify_pieces(self, img: np.ndarray, turn: chess.Color, corners: np.ndarray, occupancy: np.ndarray) -> np.ndarray:
+    def _classify_pieces(self, img: np.ndarray, orientation: str | chess.Color, corners: np.ndarray, occupancy: np.ndarray) -> np.ndarray:
         occupied_squares = np.array(self._squares)[occupancy]
         warped = create_piece_dataset.warp_chessboard_image(
             img, corners)
         piece_imgs = map(functools.partial(
-            create_piece_dataset.crop_square, warped, turn=turn), occupied_squares)
+            create_piece_dataset.crop_square, warped, turn=orientation), occupied_squares)
         piece_imgs = map(Image.fromarray, piece_imgs)
         piece_imgs = map(self._pieces_transforms, piece_imgs)
         piece_imgs = list(piece_imgs)
@@ -108,16 +108,16 @@ class ChessRecognizer:
         pieces = self._pieces_model(piece_imgs)
         pieces = pieces.argmax(axis=-1).cpu().numpy()
         pieces = self._piece_classes[pieces]
-        all_pieces = np.full(len(self._squares), None, dtype=object)
+        all_pieces = np.full(len(self._squares), None, dtype=np.object)
         all_pieces[occupancy] = pieces
         return all_pieces
 
-    def predict(self, img: np.ndarray, turn: chess.Color = chess.WHITE) -> typing.Tuple[chess.Board, np.ndarray]:
+    def predict(self, img: np.ndarray, orientation: str | chess.Color = chess.WHITE) -> typing.Tuple[chess.Board, np.ndarray]:
         """Perform an inference.
 
         Args:
             img (np.ndarray): the input image (RGB)
-            turn (chess.Color, optional): the current player. Defaults to chess.WHITE.
+            orientation (str | chess.Color, optional): the board orientation or current player. Defaults to chess.WHITE.
 
         Returns:
             typing.Tuple[chess.Board, np.ndarray]: the predicted position on the board and the four corner points
@@ -125,8 +125,8 @@ class ChessRecognizer:
         with torch.no_grad():
             img, img_scale = resize_image(self._corner_detection_cfg, img)
             corners = find_corners(self._corner_detection_cfg, img)
-            occupancy = self._classify_occupancy(img, turn, corners)
-            pieces = self._classify_pieces(img, turn, corners, occupancy)
+            occupancy = self._classify_occupancy(img, orientation, corners)
+            pieces = self._classify_pieces(img, orientation, corners, occupancy)
 
             board = chess.Board()
             board.clear_board()

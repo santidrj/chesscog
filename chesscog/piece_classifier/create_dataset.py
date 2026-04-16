@@ -43,13 +43,41 @@ OUT_WIDTH = int((1 + MAX_WIDTH_INCREASE) * SQUARE_SIZE)
 OUT_HEIGHT = int((1 + MAX_HEIGHT_INCREASE) * SQUARE_SIZE)
 
 
-def crop_square(img: np.ndarray, square: chess.Square, turn: chess.Color) -> np.ndarray:
+def _square_position(rank: int, file: int, orientation: str | chess.Color) -> tuple[int, int]:
+    """Map a chess square to board row/column using orientation logic.
+
+    This follows the same orientation mapping as
+    :meth:`chesslive_core.core.strategies.croppers.square_cropper.SquareCropper._get_position`.
+
+    Orientation may be one of the dataset A8 values:
+    ``top-left``, ``top-right``, ``bottom-left``, ``bottom-right``.
+    For backward compatibility, a chess color is also accepted.
+    """
+    if orientation == chess.WHITE:
+        orientation = "top-left"
+    elif orientation == chess.BLACK:
+        orientation = "bottom-right"
+
+    normalized = str(orientation).strip().lower().replace("_", "-").replace(" ", "-")
+    if normalized == "top-left":
+        return 7 - rank, file
+    if normalized == "top-right":
+        return file, rank
+    if normalized == "bottom-left":
+        return 7 - file, 7 - rank
+    if normalized == "bottom-right":
+        return rank, 7 - file
+
+    raise ValueError(f"Unsupported orientation: {orientation}")
+
+
+def crop_square(img: np.ndarray, square: chess.Square, orientation: str | chess.Color) -> np.ndarray:
     """Crop a chess square from the warped input image for piece classification.
 
     Args:
         img (np.ndarray): the warped input image
         square (chess.Square): the square to crop
-        turn (chess.Color): the current player
+        orientation (str | chess.Color): the board orientation or current player
 
     Returns:
         np.ndarray: the cropped square
@@ -57,10 +85,7 @@ def crop_square(img: np.ndarray, square: chess.Square, turn: chess.Color) -> np.
 
     rank = chess.square_rank(square)
     file = chess.square_file(square)
-    if turn == chess.WHITE:
-        row, col = 7 - rank, file
-    else:
-        row, col = rank, 7 - file
+    row, col = _square_position(rank, file, orientation)
     height_increase = MIN_HEIGHT_INCREASE + \
         (MAX_HEIGHT_INCREASE - MIN_HEIGHT_INCREASE) * ((7 - row) / 7)
     left_increase = 0 if col >= 4 else MIN_WIDTH_INCREASE + \
@@ -100,7 +125,7 @@ def warp_chessboard_image(img: np.ndarray, corners: np.ndarray) -> np.ndarray:
                            [BOARD_SIZE + MARGIN, \
                             BOARD_SIZE + MARGIN],  # bottom right
                            [MARGIN, BOARD_SIZE + MARGIN]  # bottom left
-                           ], dtype=np.float32)
+                           ], dtype=np.float)
     transformation_matrix, mask = cv2.findHomography(src_points, dst_points)
     return cv2.warpPerspective(img, transformation_matrix, (IMG_SIZE, IMG_SIZE))
 
@@ -111,13 +136,14 @@ def _extract_squares_from_sample(id: str, subset: str = "", input_dir: Path = RE
     with (input_dir / subset / (id + ".json")).open("r") as f:
         label = json.load(f)
 
-    corners = np.array(label["corners"], dtype=np.float32)
+    corners = np.array(label["corners"], dtype=np.float)
     unwarped = warp_chessboard_image(img, corners)
 
     board = chess.Board(label["fen"])
+    orientation = label.get("orientation", label["white_turn"])
 
     for square, piece in board.piece_map().items():
-        piece_img = crop_square(unwarped, square, label["white_turn"])
+        piece_img = crop_square(unwarped, square, orientation)
         with Image.fromarray(piece_img, "RGB") as piece_img:
             piece_img.save(output_dir / subset / piece_name(piece) /
                            f"{id}_{chess.square_name(square)}.png")
