@@ -15,7 +15,7 @@ Note that before running this module requires the rendered dataset to be downloa
 """
 
 from pathlib import Path
-from typing import Union
+from typing import Union, Tuple
 import matplotlib.pyplot as plt
 import cv2
 from PIL import Image, ImageDraw
@@ -36,7 +36,7 @@ BOARD_SIZE = 8 * SQUARE_SIZE
 IMG_SIZE = BOARD_SIZE + 2 * SQUARE_SIZE
 
 
-def _square_position(rank: int, file: int, orientation: Union[str, chess.Color]) -> tuple[int, int]:
+def _square_position(rank: int, file: int, orientation: Union[str, chess.Color]) -> Tuple[int, int]:
     """Map a chess square to board row/column using orientation logic.
 
     This follows the same orientation mapping as

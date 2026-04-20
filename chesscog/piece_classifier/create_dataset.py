@@ -17,7 +17,7 @@ Note that script is different to :mod:`chesscog.core.piece_classifier.create_dat
 """
 
 from pathlib import Path
-from typing import Union
+from typing import Union, Tuple
 import matplotlib.pyplot as plt
 import cv2
 from PIL import Image, ImageDraw
@@ -44,7 +44,7 @@ OUT_WIDTH = int((1 + MAX_WIDTH_INCREASE) * SQUARE_SIZE)
 OUT_HEIGHT = int((1 + MAX_HEIGHT_INCREASE) * SQUARE_SIZE)
 
 
-def _square_position(rank: int, file: int, orientation: Union[str, chess.Color]) -> tuple[int, int]:
+def _square_position(rank: int, file: int, orientation: Union[str, chess.Color]) -> Tuple[int, int]:
     """Map a chess square to board row/column using orientation logic.
 
     This follows the same orientation mapping as
