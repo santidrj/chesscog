@@ -29,7 +29,7 @@ from PIL import Image
 import functools
 import cv2
 import argparse
-import typing
+from typing import Union, Tuple
 from recap import URI, CfgNode as CN
 
 from chesscog.corner_detection import find_corners, resize_image
@@ -78,7 +78,7 @@ class ChessRecognizer:
         model.eval()
         return cfg, model
 
-    def _classify_occupancy(self, img: np.ndarray, orientation: str | chess.Color, corners: np.ndarray) -> np.ndarray:
+    def _classify_occupancy(self, img: np.ndarray, orientation: Union[str, chess.Color], corners: np.ndarray) -> np.ndarray:
         warped = create_occupancy_dataset.warp_chessboard_image(
             img, corners)
         square_imgs = map(functools.partial(
@@ -94,7 +94,7 @@ class ChessRecognizer:
         occupancy = occupancy.cpu().numpy()
         return occupancy
 
-    def _classify_pieces(self, img: np.ndarray, orientation: str | chess.Color, corners: np.ndarray, occupancy: np.ndarray) -> np.ndarray:
+    def _classify_pieces(self, img: np.ndarray, orientation: Union[str, chess.Color], corners: np.ndarray, occupancy: np.ndarray) -> np.ndarray:
         occupied_squares = np.array(self._squares)[occupancy]
         warped = create_piece_dataset.warp_chessboard_image(
             img, corners)
@@ -112,7 +112,7 @@ class ChessRecognizer:
         all_pieces[occupancy] = pieces
         return all_pieces
 
-    def predict(self, img: np.ndarray, orientation: str | chess.Color = chess.WHITE) -> typing.Tuple[chess.Board, np.ndarray]:
+    def predict(self, img: np.ndarray, orientation: Union[str, chess.Color] = chess.WHITE) -> Tuple[chess.Board, np.ndarray]:
         """Perform an inference.
 
         Args:
@@ -141,7 +141,7 @@ class TimedChessRecognizer(ChessRecognizer):
     """A subclass of :class:`ChessRecognizer` that additionally records the time taken for each step of the pipeline during inference.
     """
 
-    def predict(self, img: np.ndarray, turn: chess.Color = chess.WHITE) -> typing.Tuple[chess.Board, np.ndarray, dict]:
+    def predict(self, img: np.ndarray, turn: chess.Color = chess.WHITE) -> Tuple[chess.Board, np.ndarray, dict]:
         """Perform an inference.
 
         Args:
